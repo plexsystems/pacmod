@@ -1,15 +1,18 @@
 package commands
 
 import (
-	"github.com/hugocarreira/go-decent-copy"
-	"github.com/plexsystems/pacmod/pkg/pack"
-	"github.com/spf13/cobra"
+	"fmt"
+	"io"
 	"log"
 	"os"
 	"path/filepath"
+
+	"github.com/plexsystems/pacmod/pack"
+	"github.com/spf13/cobra"
 )
 
-func newPackCommand() *cobra.Command {
+// NewPackCommand creates a new pack command
+func NewPackCommand() *cobra.Command {
 	cmd := cobra.Command{
 		Use:   "pack <module> <version>",
 		Short: "Package your Go module",
@@ -26,7 +29,7 @@ func newPackCommand() *cobra.Command {
 func runPackCommand(args []string) error {
 	path, err := os.Getwd()
 	if err != nil {
-		return err
+		return fmt.Errorf("could not get working directory: %w", err)
 	}
 
 	name := args[0]
@@ -39,39 +42,46 @@ func runPackCommand(args []string) error {
 	}
 
 	outputDirectory := filepath.Join(module.Path, module.Version)
-	err = os.Mkdir(outputDirectory, 0777)
-	if err != nil {
-		return err
+	if err := os.Mkdir(outputDirectory, 0777); err != nil {
+		return fmt.Errorf("could not create output directory: %w", err)
 	}
 
-	log.Printf("Packing module %s into output directory %s", module.Name, outputDirectory)
-
-	log.Println("Creating archive...")
-	err = module.ZipModule(outputDirectory)
-	if err != nil {
-		return err
+	log.Println("Creating zip archive...")
+	if err := pack.ZipModule(outputDirectory); err != nil {
+		return fmt.Errorf("could not create archive: %w", err)
 	}
 
-	log.Println("Creating info...")
-	info := pack.Info{
-		Version: version,
-	}
-	err = info.CreateInfo(outputDirectory)
-	if err != nil {
-		return err
+	log.Println("Creating info file...")
+	if err := pack.CreateInfoFile(version, outputDirectory); err != nil {
+		return fmt.Errorf("could not create info file: %w", err)
 	}
 
-	log.Println("Copying mod...")
-	return copyModuleFile(module.Path, outputDirectory)
+	log.Println("Copying mod file...")
+	if err := copyModuleFile(module.Path, outputDirectory); err != nil {
+		return fmt.Errorf("could not copy mod file: %w", err)
+	}
+
+	return nil
 }
 
 func copyModuleFile(source string, destination string) error {
-	sourceModFile := filepath.Join(source, "go.mod")
-	destinationModFile := filepath.Join(destination, "go.mod")
+	sourcePath := filepath.Join(source, "go.mod")
+	destinationPath := filepath.Join(destination, "go.mod")
 
-	err := decentcopy.Copy(sourceModFile, destinationModFile)
+	sourceModule, err := os.Open(sourcePath)
 	if err != nil {
-		return err
+		return fmt.Errorf("could not open source file: %w", err)
+	}
+	defer sourceModule.Close()
+
+	destinationModule, err := os.Create(destinationPath)
+	if err != nil {
+		return fmt.Errorf("could not create mod file: %w", err)
+	}
+	defer destinationModule.Close()
+
+	if _, err := io.Copy(sourceModule, destinationModule); err != nil {
+		return fmt.Errorf("could not copy module contents: %w", err)
 	}
 
 	return nil
