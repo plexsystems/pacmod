@@ -2,7 +2,7 @@ package commands
 
 import "github.com/spf13/cobra"
 
-// NewDefaultCommand creates the default command
+// NewDefaultCommand creates a new default command
 func NewDefaultCommand() *cobra.Command {
 
 	cmd := cobra.Command{

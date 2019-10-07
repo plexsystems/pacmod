@@ -2,13 +2,13 @@ package pack
 
 import (
 	"archive/zip"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
-	"encoding/json"
 )
 
 // Module represents a Go module
@@ -129,7 +129,7 @@ func (m Module) copyModuleFile(outputDirectory string) error {
 	}
 	defer destinationModule.Close()
 
-	if _, err := io.Copy(sourceModule, destinationModule); err != nil {
+	if _, err := io.Copy(destinationModule, sourceModule); err != nil {
 		return fmt.Errorf("could not copy module contents: %w", err)
 	}
 

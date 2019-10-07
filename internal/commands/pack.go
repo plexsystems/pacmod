@@ -2,7 +2,6 @@ package commands
 
 import (
 	"fmt"
-	"io"
 	"log"
 	"os"
 	"path/filepath"
@@ -14,9 +13,9 @@ import (
 // NewPackCommand creates a new pack command
 func NewPackCommand() *cobra.Command {
 	cmd := cobra.Command{
-		Use:   "pack <module> <version>",
+		Use:   "pack <module> <version> <outputdirectory>",
 		Short: "Package your Go module",
-		Args:  cobra.MinimumNArgs(2),
+		Args:  cobra.MinimumNArgs(3),
 
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runPackCommand(args)
@@ -32,8 +31,10 @@ func runPackCommand(args []string) error {
 		return fmt.Errorf("could not get working directory: %w", err)
 	}
 
+	path = filepath.ToSlash(path)
 	name := args[0]
 	version := args[1]
+	outputDirectory := args[2]
 
 	module := pack.Module{
 		Path:    path,
@@ -41,47 +42,9 @@ func runPackCommand(args []string) error {
 		Version: version,
 	}
 
-	outputDirectory := filepath.Join(module.Path, module.Version)
-	if err := os.Mkdir(outputDirectory, 0777); err != nil {
-		return fmt.Errorf("could not create output directory: %w", err)
-	}
-
-	log.Println("Creating zip archive...")
-	if err := pack.ZipModule(outputDirectory); err != nil {
-		return fmt.Errorf("could not create archive: %w", err)
-	}
-
-	log.Println("Creating info file...")
-	if err := pack.CreateInfoFile(version, outputDirectory); err != nil {
-		return fmt.Errorf("could not create info file: %w", err)
-	}
-
-	log.Println("Copying mod file...")
-	if err := copyModuleFile(module.Path, outputDirectory); err != nil {
-		return fmt.Errorf("could not copy mod file: %w", err)
-	}
-
-	return nil
-}
-
-func copyModuleFile(source string, destination string) error {
-	sourcePath := filepath.Join(source, "go.mod")
-	destinationPath := filepath.Join(destination, "go.mod")
-
-	sourceModule, err := os.Open(sourcePath)
-	if err != nil {
-		return fmt.Errorf("could not open source file: %w", err)
-	}
-	defer sourceModule.Close()
-
-	destinationModule, err := os.Create(destinationPath)
-	if err != nil {
-		return fmt.Errorf("could not create mod file: %w", err)
-	}
-	defer destinationModule.Close()
-
-	if _, err := io.Copy(sourceModule, destinationModule); err != nil {
-		return fmt.Errorf("could not copy module contents: %w", err)
+	log.Printf("Packing module %s...", name)
+	if err := module.PackageModule(outputDirectory); err != nil {
+		return fmt.Errorf("could not package module: %w", err)
 	}
 
 	return nil
