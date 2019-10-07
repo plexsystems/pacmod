@@ -40,14 +40,14 @@ func (m Module) createZipArchive(outputDirectory string) error {
 
 	zipFile, err := os.Create(outputPath)
 	if err != nil {
-		return fmt.Errorf("could not create empty zip file: %w", err)
+		return fmt.Errorf("unable to create empty zip file: %w", err)
 	}
 	defer zipFile.Close()
 
 	zipWriter := zip.NewWriter(zipFile)
 	err = filepath.Walk(m.Path, func(currentFilePath string, fileInfo os.FileInfo, err error) error {
 		if err != nil {
-			return err
+			return fmt.Errorf("unable to walk path: %w", err)
 		}
 
 		if fileInfo.IsDir() && fileInfo.Name() == ".git" {
@@ -60,21 +60,24 @@ func (m Module) createZipArchive(outputDirectory string) error {
 
 		file, err := os.Open(currentFilePath)
 		if err != nil {
-			return err
+			return fmt.Errorf("unable to open file: %w", err)
 		}
 		defer file.Close()
 
 		zipPath := m.getZipPath(currentFilePath)
 		zipFileWriter, err := zipWriter.Create(zipPath)
 		if err != nil {
-			return err
+			return fmt.Errorf("unable to add file to zip archive: %w", err)
 		}
 
-		_, err = io.Copy(zipFileWriter, file)
-		return err
+		if _, err := io.Copy(zipFileWriter, file); err != nil {
+			return fmt.Errorf("unable to copy file to zip archive: %w", err)
+		}
+
+		return nil
 	})
 	if err != nil {
-		return fmt.Errorf("could not zip all files: %w", err)
+		return fmt.Errorf("unable to zip all files: %w", err)
 	}
 
 	return zipWriter.Close()
