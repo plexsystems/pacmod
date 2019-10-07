@@ -1,8 +1,9 @@
 package main
 
 import (
-	"github.com/plexsystems/pacmod/internal/commands"
 	"os"
+
+	"github.com/plexsystems/pacmod/internal/commands"
 )
 
 func main() {
