@@ -9,13 +9,13 @@ Pacmod is a small tool that can be used to package up your Go modules for distri
 
 ## Installation
 
-`go get github.com/plexsystems/pacmod/cmd/pacmod`
+`go get github.com/plexsystems/pacmod`
 
 ## Usage
 
 Run the `pack` command in the directory containing your `go.mod`. For example:
 
-`pacmod pack mymodule v1.0.0`
+`pacmod pack github.com/repo/user v1.0.0 outputdirectory`
 
 This will result in the following files:
 
