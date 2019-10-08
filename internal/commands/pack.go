@@ -10,8 +10,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// NewPackCommand creates a new pack command
-func NewPackCommand() *cobra.Command {
+// newPackCommand creates a new pack command
+func newPackCommand() *cobra.Command {
 	cmd := cobra.Command{
 		Use:   "pack <module> <version> <outputdirectory>",
 		Short: "Package your Go module",

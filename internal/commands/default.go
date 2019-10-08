@@ -9,7 +9,7 @@ func NewDefaultCommand() *cobra.Command {
 		Short: "Command line tool to assist with packaging Go modules",
 	}
 
-	cmd.AddCommand(NewPackCommand())
+	cmd.AddCommand(newPackCommand())
 
 	return &cmd
 }

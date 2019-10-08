@@ -98,13 +98,18 @@ func (m Module) createInfoFile(outputDirectory string) error {
 	}
 	defer file.Close()
 
-	infoBytes, err := json.Marshal(struct {
+	type infoFile struct {
 		Version string
 		Time    string
-	}{
+	}
+
+	const infoFileTimeFormat = "2006-01-02T15:04:05Z"
+	info := infoFile{
 		Version: m.Version,
-		Time:    time.Now().Format("2006-01-02T15:04:05Z"),
-	})
+		Time:    time.Now().Format(infoFileTimeFormat),
+	}
+
+	infoBytes, err := json.Marshal(info)
 	if err != nil {
 		return fmt.Errorf("could not marshal info file: %w", err)
 	}
