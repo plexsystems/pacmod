@@ -13,7 +13,7 @@ func Test_GetZipPath_PathAndModulePathsAreSame(t *testing.T) {
 	expected := "root@v1.0.0/app.go"
 
 	if actual != expected {
-		t.Errorf("expected %v, got %v", expected, actual)
+		t.Errorf("expected %v, actual %v", expected, actual)
 	}
 }
 
@@ -27,6 +27,6 @@ func Test_GetZipPath_ModulePathChildOfPath(t *testing.T) {
 	expected := "repository/username/app@v1.0.0/app.go"
 
 	if actual != expected {
-		t.Errorf("expected %v, got %v", expected, actual)
+		t.Errorf("expected %v, actual %v", expected, actual)
 	}
 }
