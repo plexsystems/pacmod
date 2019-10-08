@@ -18,7 +18,7 @@ type Module struct {
 	Version string
 }
 
-// PackageModule packs the module and outputs the result to the specified output path
+// PackageModule packs the module and outputs the result to the specified output directory
 func (m Module) PackageModule(outputDirectory string) error {
 	if err := m.createZipArchive(outputDirectory); err != nil {
 		return fmt.Errorf("could not create zip archive: %w", err)
