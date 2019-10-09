@@ -15,9 +15,9 @@ Pacmod is a small tool that can be used to package up your Go modules for distri
 
 Run the `pack` command in the directory containing your `go.mod`. For example:
 
-`pacmod pack github.com/repo/user v1.0.0 outputdirectory`
+`pacmod pack v1.0.0 outputdirectory`
 
-This will result in the following files:
+This will result in the following files being placed in the `outputdirectory`:
 
 - `go.mod` - The current mod file when the `pack` command was executed
 - `v1.0.0.info` - The info file containing the module version and timestamp
