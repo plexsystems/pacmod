@@ -4,18 +4,18 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"path/filepath"
 
 	"github.com/plexsystems/pacmod/pack"
 	"github.com/spf13/cobra"
 )
 
-// NewPackCommand creates a new pack command
+// NewPackCommand creates a new pack command which allows
+// the user to package their Go modules
 func NewPackCommand() *cobra.Command {
 	cmd := cobra.Command{
-		Use:   "pack <module> <version> <outputdirectory>",
+		Use:   "pack <version> <outputdirectory>",
 		Short: "Package your Go module",
-		Args:  cobra.MinimumNArgs(3),
+		Args:  cobra.MinimumNArgs(2),
 
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runPackCommand(args)
@@ -31,19 +31,11 @@ func runPackCommand(args []string) error {
 		return fmt.Errorf("could not get working directory: %w", err)
 	}
 
-	path = filepath.ToSlash(path)
-	name := args[0]
-	version := args[1]
-	outputDirectory := args[2]
+	version := args[0]
+	outputDirectory := args[1]
 
-	module := pack.Module{
-		Path:    path,
-		Name:    name,
-		Version: version,
-	}
-
-	log.Printf("Packing module %s...", name)
-	if err := module.PackageModule(outputDirectory); err != nil {
+	log.Printf("Packing module in path %s...", path)
+	if err := pack.Module(path, version, outputDirectory); err != nil {
 		return fmt.Errorf("could not package module: %w", err)
 	}
 
