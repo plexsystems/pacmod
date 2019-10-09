@@ -47,7 +47,7 @@ func getModuleName(path string) (string, error) {
 	moduleFileReader := bufio.NewReader(file)
 	moduleHeader, err := moduleFileReader.ReadString('\n')
 	if err != nil {
-		fmt.Errorf("unable to read module header: %w", err)
+		return "", fmt.Errorf("unable to read module header: %w", err)
 	}
 
 	moduleHeaderParts := strings.Split(moduleHeader, " ")
@@ -126,8 +126,8 @@ func createZipArchive(path string, moduleName string, version string, outputDire
 	return nil
 }
 
-func getZipPath(modulePath string, currentFilePath string, moduleName string, version string) string {
-	filePath := strings.TrimPrefix(currentFilePath, modulePath)
+func getZipPath(path string, currentFilePath string, moduleName string, version string) string {
+	filePath := strings.TrimPrefix(currentFilePath, path)
 	return filepath.Join(fmt.Sprintf("%s@%s", moduleName, version), filePath)
 }
 

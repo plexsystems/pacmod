@@ -9,7 +9,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// NewPackCommand creates a new pack command which allows the user to package their Go modules
+// NewPackCommand creates a new pack command which allows
+// the user to package their Go modules
 func NewPackCommand() *cobra.Command {
 	cmd := cobra.Command{
 		Use:   "pack <version> <outputdirectory>",

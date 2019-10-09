@@ -2,7 +2,8 @@ package commands
 
 import "github.com/spf13/cobra"
 
-// NewDefaultCommand creates a new default command for when the user does not provide a command
+// NewDefaultCommand creates a new default command for when
+// the user does not provide a command
 func NewDefaultCommand() *cobra.Command {
 	cmd := cobra.Command{
 		Use:   "pacmod <subcommand>",
