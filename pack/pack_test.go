@@ -1,7 +1,6 @@
 package pack
 
 import (
-	"os"
 	"testing"
 	"time"
 )
@@ -42,62 +41,4 @@ func Test_GetZipPath_ModulePathIsChildOfPath(t *testing.T) {
 	if expected != actual {
 		t.Errorf("invalid zip path: expected %v actual %v", expected, actual)
 	}
-
-}
-
-func Test_ShouldSkipFile(t *testing.T) {
-	testCases := []struct {
-		name     string
-		isDir    bool
-		expected bool
-	}{
-		{"", true, true},
-		{".git", true, true},
-		{".zip", false, true},
-	}
-
-	for _, testCase := range testCases {
-		infoFile := fakeInfoFile{
-			name:  testCase.name,
-			isDir: testCase.isDir,
-		}
-
-		actual, _ := shouldSkipFile(infoFile)
-		expected := testCase.expected
-
-		if expected != actual {
-			t.Errorf("file %v was not skipped. expected: %v actual: %v", infoFile, expected, actual)
-		}
-	}
-}
-
-type fakeInfoFile struct {
-	name  string
-	isDir bool
-}
-
-var _ os.FileInfo = fakeInfoFile{}
-
-func (f fakeInfoFile) Name() string {
-	return f.name
-}
-
-func (f fakeInfoFile) IsDir() bool {
-	return f.isDir
-}
-
-func (f fakeInfoFile) Mode() os.FileMode {
-	return 0
-}
-
-func (f fakeInfoFile) ModTime() time.Time {
-	return time.Now()
-}
-
-func (f fakeInfoFile) Sys() interface{} {
-	return nil
-}
-
-func (f fakeInfoFile) Size() int64 {
-	return 0
 }

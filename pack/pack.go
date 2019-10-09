@@ -44,17 +44,48 @@ func getModuleName(path string) (string, error) {
 	}
 	defer file.Close()
 
-	scanner := bufio.NewScanner(file)
-	if ok := scanner.Scan(); !ok {
-		return "", fmt.Errorf("unable to get module header: %w", err)
+	moduleFileReader := bufio.NewReader(file)
+	moduleHeader, err := moduleFileReader.ReadString('\n')
+	if err != nil {
+		fmt.Errorf("unable to read module header: %w", err)
 	}
 
-	moduleFileHeader := strings.Split(scanner.Text(), " ")
-	if len(moduleFileHeader) <= 1 {
+	moduleHeaderParts := strings.Split(moduleHeader, " ")
+	if len(moduleHeaderParts) <= 1 {
 		return "", fmt.Errorf("unable to parse module header: %w", err)
 	}
 
-	return moduleFileHeader[1], nil
+	return moduleHeaderParts[1], nil
+}
+
+func getFilesToArchive(path string) ([]string, error) {
+	var files []string
+	err := filepath.Walk(path, func(currentFilePath string, fileInfo os.FileInfo, err error) error {
+		if err != nil {
+			return fmt.Errorf("unable to walk path: %w", err)
+		}
+
+		// We do not want to include the .git directory in the archived module
+		// filepath.SkipDir tells the Walk() function to ignore everything inside of the directory
+		if fileInfo.IsDir() && fileInfo.Name() == ".git" {
+			return filepath.SkipDir
+		}
+
+		// Do not process directories
+		// returning nil tells the Walk() function to ignore this file
+		if fileInfo.IsDir() {
+			return nil
+		}
+
+		files = append(files, currentFilePath)
+
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return files, nil
 }
 
 func createZipArchive(path string, moduleName string, version string, outputDirectory string) error {
@@ -62,61 +93,37 @@ func createZipArchive(path string, moduleName string, version string, outputDire
 
 	zipFile, err := os.Create(outputPath)
 	if err != nil {
-		return fmt.Errorf("unable to create empty zip file: %w", err)
+		return fmt.Errorf("unable to create zip file: %w", err)
 	}
 	defer zipFile.Close()
 
 	zipWriter := zip.NewWriter(zipFile)
 	defer zipWriter.Close()
 
-	err = filepath.Walk(path, func(currentFilePath string, fileInfo os.FileInfo, err error) error {
-		if err != nil {
-			return fmt.Errorf("unable to walk path: %w", err)
-		}
+	filesToArchive, err := getFilesToArchive(path)
+	if err != nil {
+		return fmt.Errorf("unable to get files to archive: %w", err)
+	}
 
-		if skipFile, err := shouldSkipFile(fileInfo); skipFile {
-			return err
-		}
-
-		zipPath := getZipPath(path, currentFilePath, moduleName, version)
-		zipFileWriter, err := zipWriter.Create(zipPath)
+	for _, file := range filesToArchive {
+		zippedFilePath := getZipPath(path, file, moduleName, version)
+		zippedFileWriter, err := zipWriter.Create(zippedFilePath)
 		if err != nil {
 			return fmt.Errorf("unable to add file to zip archive: %w", err)
 		}
 
-		file, err := os.Open(currentFilePath)
+		fileToZip, err := os.Open(file)
 		if err != nil {
 			return fmt.Errorf("unable to open file: %w", err)
 		}
-		defer file.Close()
+		defer fileToZip.Close()
 
-		if _, err := io.Copy(zipFileWriter, file); err != nil {
-			return fmt.Errorf("unable to copy file to zip archive: %w", err)
+		if _, err := io.Copy(zippedFileWriter, fileToZip); err != nil {
+			return fmt.Errorf("unable to copy file contents to zip archive: %w", err)
 		}
-
-		return nil
-	})
-	if err != nil {
-		return fmt.Errorf("unable to zip all files: %w", err)
 	}
 
 	return nil
-}
-
-func shouldSkipFile(fileInfo os.FileInfo) (bool, error) {
-	// We do not want to include the .git directory in the archived module file
-	// filepath.SkipDir tells the Walk() function to ignore everything inside of the directory
-	if fileInfo.IsDir() && fileInfo.Name() == ".git" {
-		return true, filepath.SkipDir
-	}
-
-	// Do not process directories or zip files
-	// returning nil tells the Walk() function to ignore this file
-	if fileInfo.IsDir() || filepath.Ext(fileInfo.Name()) == ".zip" {
-		return true, nil
-	}
-
-	return false, nil
 }
 
 func getZipPath(modulePath string, currentFilePath string, moduleName string, version string) string {
