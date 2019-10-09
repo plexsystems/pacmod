@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -37,20 +38,16 @@ func Module(path string, version string, outputDirectory string) error {
 
 func getModuleName(path string) (string, error) {
 	moduleFilePath := filepath.Join(path, "go.mod")
-
 	file, err := os.Open(moduleFilePath)
 	if err != nil {
 		return "", fmt.Errorf("unable to open module file: %w", err)
 	}
 	defer file.Close()
 
-	moduleFileReader := bufio.NewReader(file)
-	moduleHeader, err := moduleFileReader.ReadString('\n')
-	if err != nil {
-		return "", fmt.Errorf("unable to read module header: %w", err)
-	}
+	moduleFileScanner := bufio.NewScanner(file)
+	moduleFileScanner.Scan()
 
-	moduleHeaderParts := strings.Split(moduleHeader, " ")
+	moduleHeaderParts := strings.Split(moduleFileScanner.Text(), " ")
 	if len(moduleHeaderParts) <= 1 {
 		return "", fmt.Errorf("unable to parse module header: %w", err)
 	}
@@ -58,7 +55,44 @@ func getModuleName(path string) (string, error) {
 	return moduleHeaderParts[1], nil
 }
 
-func getFilesToArchive(path string) ([]string, error) {
+func createZipArchive(path string, moduleName string, version string, outputDirectory string) error {
+	filePathsToArchive, err := getFilePathsToArchive(path)
+	if err != nil {
+		return fmt.Errorf("unable to get files to archive: %w", err)
+	}
+
+	outputPath := filepath.Join(outputDirectory, version+".zip")
+	zipFile, err := os.Create(outputPath)
+	if err != nil {
+		return fmt.Errorf("unable to create zip file: %w", err)
+	}
+	defer zipFile.Close()
+
+	zipWriter := zip.NewWriter(zipFile)
+	defer zipWriter.Close()
+
+	for _, filePath := range filePathsToArchive {
+		fileToZip, err := os.Open(filePath)
+		if err != nil {
+			return fmt.Errorf("unable to open file: %w", err)
+		}
+		defer fileToZip.Close()
+
+		zippedFilePath := getZipPath(path, filePath, moduleName, version)
+		zippedFileWriter, err := zipWriter.Create(zippedFilePath)
+		if err != nil {
+			return fmt.Errorf("unable to add file to zip archive: %w", err)
+		}
+
+		if _, err := io.Copy(zippedFileWriter, fileToZip); err != nil {
+			return fmt.Errorf("unable to copy file contents to zip archive: %w", err)
+		}
+	}
+
+	return nil
+}
+
+func getFilePathsToArchive(path string) ([]string, error) {
 	var files []string
 	err := filepath.Walk(path, func(currentFilePath string, fileInfo os.FileInfo, err error) error {
 		if err != nil {
@@ -86,44 +120,6 @@ func getFilesToArchive(path string) ([]string, error) {
 	}
 
 	return files, nil
-}
-
-func createZipArchive(path string, moduleName string, version string, outputDirectory string) error {
-	outputPath := filepath.Join(outputDirectory, version+".zip")
-
-	zipFile, err := os.Create(outputPath)
-	if err != nil {
-		return fmt.Errorf("unable to create zip file: %w", err)
-	}
-	defer zipFile.Close()
-
-	zipWriter := zip.NewWriter(zipFile)
-	defer zipWriter.Close()
-
-	filesToArchive, err := getFilesToArchive(path)
-	if err != nil {
-		return fmt.Errorf("unable to get files to archive: %w", err)
-	}
-
-	for _, file := range filesToArchive {
-		zippedFilePath := getZipPath(path, file, moduleName, version)
-		zippedFileWriter, err := zipWriter.Create(zippedFilePath)
-		if err != nil {
-			return fmt.Errorf("unable to add file to zip archive: %w", err)
-		}
-
-		fileToZip, err := os.Open(file)
-		if err != nil {
-			return fmt.Errorf("unable to open file: %w", err)
-		}
-		defer fileToZip.Close()
-
-		if _, err := io.Copy(zippedFileWriter, fileToZip); err != nil {
-			return fmt.Errorf("unable to copy file contents to zip archive: %w", err)
-		}
-	}
-
-	return nil
 }
 
 func getZipPath(path string, currentFilePath string, moduleName string, version string) string {
@@ -167,24 +163,25 @@ func getInfoFileFormattedTime(currentTime time.Time) string {
 	return currentTime.Format(infoFileTimeFormat)
 }
 
-func copyModuleFile(modulePath string, outputDirectory string) error {
-	sourcePath := filepath.Join(modulePath, "go.mod")
+func copyModuleFile(path string, outputDirectory string) error {
+	if outputDirectory == "." {
+		return nil
+	}
+
+	sourcePath := filepath.Join(path, "go.mod")
 	destinationPath := filepath.Join(outputDirectory, "go.mod")
 
-	sourceModule, err := os.Open(sourcePath)
-	if err != nil {
-		return fmt.Errorf("could not open source module file: %w", err)
+	if sourcePath == destinationPath {
+		return nil
 	}
-	defer sourceModule.Close()
 
-	destinationModule, err := os.Create(destinationPath)
+	moduleContents, err := ioutil.ReadFile(sourcePath)
 	if err != nil {
-		return fmt.Errorf("could not create mod file: %w", err)
+		return fmt.Errorf("unable to read module file: %w", err)
 	}
-	defer destinationModule.Close()
 
-	if _, err := io.Copy(destinationModule, sourceModule); err != nil {
-		return fmt.Errorf("could not copy module contents: %w", err)
+	if err := ioutil.WriteFile(destinationPath, moduleContents, 0644); err != nil {
+		return fmt.Errorf("unable to write module file: %w", err)
 	}
 
 	return nil
