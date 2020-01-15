@@ -29,24 +29,24 @@ func NewPackCommand() *cobra.Command {
 func runPackCommand(args []string) error {
 	path, err := os.Getwd()
 	if err != nil {
-		return fmt.Errorf("could not get working directory: %w", err)
+		return fmt.Errorf("get working directory: %w", err)
 	}
 
 	version := args[0]
 
 	path, err = filepath.Abs(path)
 	if err != nil {
-		return fmt.Errorf("could not get abs path of module path: %w", err)
+		return fmt.Errorf("get abs path of module path: %w", err)
 	}
 
 	outputDirectory, err := filepath.Abs(args[1])
 	if err != nil {
-		return fmt.Errorf("could not get abs path of output directory: %w", err)
+		return fmt.Errorf("get abs path of output directory: %w", err)
 	}
 
 	log.Printf("Packing module in path %s...", outputDirectory)
 	if err := pack.Module(path, version, outputDirectory); err != nil {
-		return fmt.Errorf("could not package module: %w", err)
+		return fmt.Errorf("package module: %w", err)
 	}
 
 	return nil

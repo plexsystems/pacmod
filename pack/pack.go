@@ -18,19 +18,19 @@ import (
 func Module(path string, version string, outputDirectory string) error {
 	moduleName, err := getModuleName(path)
 	if err != nil {
-		return fmt.Errorf("could not get module name: %w", err)
+		return fmt.Errorf("get module name: %w", err)
 	}
 
 	if err := createZipArchive(path, moduleName, version, outputDirectory); err != nil {
-		return fmt.Errorf("could not create zip archive: %w", err)
+		return fmt.Errorf("create zip archive: %w", err)
 	}
 
 	if err := createInfoFile(version, outputDirectory); err != nil {
-		return fmt.Errorf("could not create info file: %w", err)
+		return fmt.Errorf("create info file: %w", err)
 	}
 
 	if err := copyModuleFile(path, outputDirectory); err != nil {
-		return fmt.Errorf("could not copy module file: %w", err)
+		return fmt.Errorf("copy module file: %w", err)
 	}
 
 	return nil
@@ -49,7 +49,7 @@ func getModuleName(path string) (string, error) {
 
 	moduleHeaderParts := strings.Split(moduleFileScanner.Text(), " ")
 	if len(moduleHeaderParts) <= 1 {
-		return "", fmt.Errorf("unable to parse module header: %w", err)
+		return "", fmt.Errorf("parse module header: %w", err)
 	}
 
 	return moduleHeaderParts[1], nil
@@ -58,13 +58,13 @@ func getModuleName(path string) (string, error) {
 func createZipArchive(path string, moduleName string, version string, outputDirectory string) error {
 	filePathsToArchive, err := getFilePathsToArchive(path)
 	if err != nil {
-		return fmt.Errorf("unable to get files to archive: %w", err)
+		return fmt.Errorf("get files to archive: %w", err)
 	}
 
 	outputPath := filepath.Join(outputDirectory, version+".zip")
 	zipFile, err := os.Create(outputPath)
 	if err != nil {
-		return fmt.Errorf("unable to create zip file: %w", err)
+		return fmt.Errorf("create zip file: %w", err)
 	}
 	defer zipFile.Close()
 
@@ -74,19 +74,20 @@ func createZipArchive(path string, moduleName string, version string, outputDire
 	for _, filePath := range filePathsToArchive {
 		fileToZip, err := os.Open(filePath)
 		if err != nil {
-			return fmt.Errorf("unable to open file: %w", err)
+			return fmt.Errorf("open file: %w", err)
 		}
-		defer fileToZip.Close()
 
 		zippedFilePath := getZipPath(path, filePath, moduleName, version)
 		zippedFileWriter, err := zipWriter.Create(zippedFilePath)
 		if err != nil {
-			return fmt.Errorf("unable to add file to zip archive: %w", err)
+			return fmt.Errorf("add file to zip archive: %w", err)
 		}
 
 		if _, err := io.Copy(zippedFileWriter, fileToZip); err != nil {
-			return fmt.Errorf("unable to copy file contents to zip archive: %w", err)
+			return fmt.Errorf("copy file contents to zip archive: %w", err)
 		}
+
+		fileToZip.Close()
 	}
 
 	return nil
@@ -96,17 +97,13 @@ func getFilePathsToArchive(path string) ([]string, error) {
 	var files []string
 	err := filepath.Walk(path, func(currentFilePath string, fileInfo os.FileInfo, err error) error {
 		if err != nil {
-			return fmt.Errorf("unable to walk path: %w", err)
+			return fmt.Errorf("walk path: %w", err)
 		}
 
-		// We do not want to include the .git directory in the archived module
-		// filepath.SkipDir tells the Walk() function to ignore everything inside of the directory
 		if fileInfo.IsDir() && fileInfo.Name() == ".git" {
 			return filepath.SkipDir
 		}
 
-		// Do not process directories
-		// returning nil tells the Walk() function to ignore this file
 		if fileInfo.IsDir() {
 			return nil
 		}
@@ -131,7 +128,7 @@ func createInfoFile(version string, outputDirectory string) error {
 	infoFilePath := filepath.Join(outputDirectory, version+".info")
 	file, err := os.Create(infoFilePath)
 	if err != nil {
-		return fmt.Errorf("could not create info file: %w", err)
+		return fmt.Errorf("create info file: %w", err)
 	}
 	defer file.Close()
 
@@ -148,11 +145,11 @@ func createInfoFile(version string, outputDirectory string) error {
 
 	infoBytes, err := json.Marshal(info)
 	if err != nil {
-		return fmt.Errorf("could not marshal info file: %w", err)
+		return fmt.Errorf("marshal info file: %w", err)
 	}
 
 	if _, err := file.Write(infoBytes); err != nil {
-		return fmt.Errorf("could not write info file: %w", err)
+		return fmt.Errorf("write info file: %w", err)
 	}
 
 	return nil
@@ -177,11 +174,11 @@ func copyModuleFile(path string, outputDirectory string) error {
 
 	moduleContents, err := ioutil.ReadFile(sourcePath)
 	if err != nil {
-		return fmt.Errorf("unable to read module file: %w", err)
+		return fmt.Errorf("read module file: %w", err)
 	}
 
 	if err := ioutil.WriteFile(destinationPath, moduleContents, 0644); err != nil {
-		return fmt.Errorf("unable to write module file: %w", err)
+		return fmt.Errorf("write module file: %w", err)
 	}
 
 	return nil
