@@ -1,131 +1,85 @@
 package pack
 
 import (
-	"archive/zip"
-	"bufio"
+	"bytes"
 	"encoding/json"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
+
+	"golang.org/x/mod/modfile"
+	"golang.org/x/mod/zip"
 )
 
 // Module packs the module at the given path and version then
 // outputs the result to the specified output directory
 func Module(path string, version string, outputDirectory string) error {
-	moduleName, err := getModuleName(path)
+	moduleFile, err := getModuleFile(path, version)
 	if err != nil {
-		return fmt.Errorf("get module name: %w", err)
+		return fmt.Errorf("get module file: %w", err)
 	}
 
-	if err := createZipArchive(path, moduleName, version, outputDirectory); err != nil {
+	if err := createZipArchive(path, moduleFile, outputDirectory); err != nil {
 		return fmt.Errorf("create zip archive: %w", err)
 	}
 
-	if err := createInfoFile(version, outputDirectory); err != nil {
+	if err := createInfoFile(moduleFile, outputDirectory); err != nil {
 		return fmt.Errorf("create info file: %w", err)
 	}
 
-	if err := copyModuleFile(path, outputDirectory); err != nil {
+	if err := copyModuleFile(path, moduleFile, outputDirectory); err != nil {
 		return fmt.Errorf("copy module file: %w", err)
 	}
 
 	return nil
 }
 
-func getModuleName(path string) (string, error) {
-	moduleFilePath := filepath.Join(path, "go.mod")
-	file, err := os.Open(moduleFilePath)
+func getModuleFile(path string, version string) (*modfile.File, error) {
+	path = filepath.Join(path, "go.mod")
+	file, err := os.Open(path)
 	if err != nil {
-		return "", fmt.Errorf("unable to open module file: %w", err)
+		return nil, fmt.Errorf("open module file: %w", err)
 	}
 	defer file.Close()
 
-	moduleFileScanner := bufio.NewScanner(file)
-	moduleFileScanner.Scan()
-
-	moduleHeaderParts := strings.Split(moduleFileScanner.Text(), " ")
-	if len(moduleHeaderParts) <= 1 {
-		return "", fmt.Errorf("parse module header: %w", err)
+	moduleBytes, err := ioutil.ReadAll(file)
+	if err != nil {
+		return nil, fmt.Errorf("read module file: %w", err)
 	}
 
-	return moduleHeaderParts[1], nil
+	moduleFile, err := modfile.Parse(path, moduleBytes, nil)
+	if err != nil {
+		return nil, fmt.Errorf("parse module file: %w", err)
+	}
+
+	if moduleFile.Module == nil {
+		return nil, fmt.Errorf("parsing module returned nil module")
+	}
+
+	moduleFile.Module.Mod.Version = version
+
+	return moduleFile, nil
 }
 
-func createZipArchive(path string, moduleName string, version string, outputDirectory string) error {
-	filePathsToArchive, err := getFilePathsToArchive(path)
-	if err != nil {
-		return fmt.Errorf("get files to archive: %w", err)
+func createZipArchive(path string, moduleFile *modfile.File, outputDirectory string) error {
+	outputPath := filepath.Join(outputDirectory, moduleFile.Module.Mod.Version+".zip")
+
+	var zipContents bytes.Buffer
+	if err := zip.CreateFromDir(&zipContents, moduleFile.Module.Mod, path); err != nil {
+		return fmt.Errorf("create zip from dir: %w", err)
 	}
 
-	outputPath := filepath.Join(outputDirectory, version+".zip")
-	zipFile, err := os.Create(outputPath)
-	if err != nil {
-		return fmt.Errorf("create zip file: %w", err)
-	}
-	defer zipFile.Close()
-
-	zipWriter := zip.NewWriter(zipFile)
-	defer zipWriter.Close()
-
-	for _, filePath := range filePathsToArchive {
-		fileToZip, err := os.Open(filePath)
-		if err != nil {
-			return fmt.Errorf("open file: %w", err)
-		}
-
-		zippedFilePath := getZipPath(path, filePath, moduleName, version)
-		zippedFileWriter, err := zipWriter.Create(zippedFilePath)
-		if err != nil {
-			return fmt.Errorf("add file to zip archive: %w", err)
-		}
-
-		if _, err := io.Copy(zippedFileWriter, fileToZip); err != nil {
-			return fmt.Errorf("copy file contents to zip archive: %w", err)
-		}
-
-		fileToZip.Close()
+	if err := ioutil.WriteFile(outputPath, zipContents.Bytes(), 0644); err != nil {
+		return fmt.Errorf("writing zip file: %w", err)
 	}
 
 	return nil
 }
 
-func getFilePathsToArchive(path string) ([]string, error) {
-	var files []string
-	err := filepath.Walk(path, func(currentFilePath string, fileInfo os.FileInfo, err error) error {
-		if err != nil {
-			return fmt.Errorf("walk path: %w", err)
-		}
-
-		if fileInfo.IsDir() && fileInfo.Name() == ".git" {
-			return filepath.SkipDir
-		}
-
-		if fileInfo.IsDir() {
-			return nil
-		}
-
-		files = append(files, currentFilePath)
-
-		return nil
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	return files, nil
-}
-
-func getZipPath(path string, currentFilePath string, moduleName string, version string) string {
-	filePath := strings.TrimPrefix(currentFilePath, path)
-	return filepath.Join(fmt.Sprintf("%s@%s", moduleName, version), filePath)
-}
-
-func createInfoFile(version string, outputDirectory string) error {
-	infoFilePath := filepath.Join(outputDirectory, version+".info")
+func createInfoFile(moduleFile *modfile.File, outputDirectory string) error {
+	infoFilePath := filepath.Join(outputDirectory, moduleFile.Module.Mod.Version+".info")
 	file, err := os.Create(infoFilePath)
 	if err != nil {
 		return fmt.Errorf("create info file: %w", err)
@@ -139,7 +93,7 @@ func createInfoFile(version string, outputDirectory string) error {
 
 	currentTime := getInfoFileFormattedTime(time.Now())
 	info := infoFile{
-		Version: version,
+		Version: moduleFile.Module.Mod.Version,
 		Time:    currentTime,
 	}
 
@@ -160,13 +114,13 @@ func getInfoFileFormattedTime(currentTime time.Time) string {
 	return currentTime.Format(infoFileTimeFormat)
 }
 
-func copyModuleFile(path string, outputDirectory string) error {
+func copyModuleFile(path string, moduleFile *modfile.File, outputDirectory string) error {
 	if outputDirectory == "." {
 		return nil
 	}
 
 	sourcePath := filepath.Join(path, "go.mod")
-	destinationPath := filepath.Join(outputDirectory, "go.mod")
+	destinationPath := filepath.Join(outputDirectory, moduleFile.Module.Mod.Version+".mod")
 
 	if sourcePath == destinationPath {
 		return nil
